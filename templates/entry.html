@@ -1,0 +1,45 @@
+<html lang="en">
+  <head>
+    <link href="/static/home.css" rel="stylesheet" type="text/css">
+    <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-ico">
+    <link rel="SHORTCUT ICON" href="/static/favicon.ico">
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+      ga('create', 'UA-93906420-1', 'auto');
+      ga('send', 'pageview');
+
+      </script>
+  </head>
+  <body>
+    <div id="content">
+      <h3>{{.Title}}</h3>
+      <p><i>{{.Month}} {{.Day}} {{.Year}}</i></p>
+      {{range $index, $content := .Content}}
+      <p>{{$content}}</p>
+      {{ if index $.Image $index }}
+      <a href="{{index $.Image $index}}">
+	<img src="{{index $.Image $index}}">
+      </a>
+      {{end}}
+      {{end}}
+    </div>
+    <hr style="border: solid #fff; height: 0;">
+    <div>
+      <p>
+	{{ if .PrevPath }}
+	<a href="{{.PrevPath}}">Previous</a>
+	{{end}}
+	<b><a href="/history">History</a></b>
+	{{ if .NextPath }}
+	<a href="{{.NextPath}}">Next</a>
+	{{end}}
+      </p>
+    </div>
+    <footer></footer>
+  </body>
+  </html>

@@ -1,0 +1,29 @@
+HTML {
+    background-color: #adc2eb;
+}
+BODY {
+    background-color: white;
+    font-family: sans-serif;
+    padding: 10px 10px 25px 10px;
+    border: 1px #eef dotted;
+    margin: 10px 20px;
+}
+
+.totheleft {
+    float: left;
+    margin-right: 5px;
+}
+.totheright {
+    float: right;
+    margin-left: 5px;
+}
+
+#content {
+    background-color: #E0EBF5;
+    clear: both;
+    padding: 5px;
+}
+
+#me {
+    margin-bottom: 5px;
+}
