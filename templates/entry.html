@@ -1,9 +1,16 @@
 <html lang="en">
   <head>
+    <title>Christopher Cawdrey -- {{.Title}}</title>
     <link href="/static/home.css" rel="stylesheet" type="text/css">
     <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+    <meta name="keywords" content="Christopher Cawdrey">
     <link rel="icon" href="/static/favicon.ico" type="image/x-ico">
     <link rel="SHORTCUT ICON" href="/static/favicon.ico">
+    <link rel="start" href="../../" title="Christopher Cawdrey's Homepage">
+    <link rel="up" href="../../" title="Christopher Cawdrey's Homepage">
+    <link rel="next" href="{{.NextPath}}">
+    <link rel="prev" href="{{.PrevPath}}">
+    <link rel="first" href="/entry/1489554739">
     <script>
       (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
       (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -23,7 +30,7 @@
       <p>{{$content}}</p>
       {{ if index $.Image $index }}
       <a href="{{index $.Image $index}}">
-	<img src="{{index $.Image $index}}">
+	<img class="image" src="{{index $.Image $index}}">
       </a>
       {{end}}
       {{end}}

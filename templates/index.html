@@ -1,5 +1,6 @@
 <html lang="en">
   <head>
+    <title>Christopher Cawdrey</title>
     <link href="/static/home.css" rel="stylesheet" type="text/css">
     <meta name="description" content="Christopher Cawdrey's Blog">
     <meta name="author" content="Christopher Cawdrey">
@@ -32,7 +33,7 @@
 	<p>{{$content}}</p>
 	{{ if index $.Image $index }}
 	<a href="{{index $.Image $index}}">
-	  <img src="{{index $.Image $index}}">
+	  <img class="image" src="{{index $.Image $index}}">
 	</a>
 	{{end}}
 	{{end}}
