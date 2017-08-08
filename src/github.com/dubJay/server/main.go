@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
-        "path/filepath"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -19,18 +19,13 @@ var (
 	db *sql.DB
 	tmpls map[string]*template.Template
 
-	cert      = flag.String("cert", "", "Concatenation of server's certificate, any intermediates, and the CA's certificate")
 	dbPath    = flag.String("dbPath", "db/testDB.db", "Datafile to use")
-	key       = flag.String("key", "", "Private key for TLS")
 	port      = flag.String("port", ":8080", "Port for server to listen on")
 	rootDir   = flag.String("rootDir", "", "Path to webdir structure")
-	ssl       = flag.Bool("ssl", false, "Whether to use TLS")
-	resources = flag.String("resources", "resources", "Images directory")
-	static    = flag.String("static", "static" , "CSS, HTML, JS, etc...")
 	templates = flag.String("templates", "templates", "Templates directory")
 )
 
-// Queries for db actions. 
+// Queries for db actions.
 var (
 	entryQuery   = `SELECT timestamp, title, next, previous, paragraph, image FROM entry WHERE timestamp = ?`
 	landingQuery = `SELECT timestamp, title, next, previous, paragraph, image FROM entry ORDER BY timestamp DESC LIMIT 1`
@@ -97,17 +92,17 @@ func initDB() {
 func initTmpls() {
 	var err error
 	tmpls = make(map[string]*template.Template)
-        tmpls[landingPage], err = template.New(
+	tmpls[landingPage], err = template.New(
 		landingPage).ParseFiles(filepath.Join(*rootDir, *templates, landingPage))
 	if err != nil {
 		log.Fatalf("error parsing template %s: %v", landingPage, err)
 	}
-        tmpls[entryPage], err = template.New(
+	tmpls[entryPage], err = template.New(
 		entryPage).ParseFiles(filepath.Join(*rootDir, *templates, entryPage))
 	if err != nil {
 		log.Fatalf("error parsing template %s: %v", entryPage, err)
 	}
-        tmpls[historyPage], err = template.New(
+	tmpls[historyPage], err = template.New(
 		historyPage).ParseFiles(filepath.Join(*rootDir, *templates, historyPage))
 	if err != nil {
 		log.Fatalf("error parsing template %s: %v", historyPage, err)
@@ -138,7 +133,7 @@ func fromEntry(e entry) entry_serving {
 }
 
 func fromHistory(h []history) history_serving {
-        m := make(map[int]map[int]string)
+	m := make(map[int]map[int]string)
 	for _, entry := range h {
 		t := time.Unix(int64(entry.entry_id), 0)
 		if _, ok := m[t.Year()]; !ok {
@@ -157,10 +152,10 @@ func fromHistory(h []history) history_serving {
 		}
 		histServe = append(histServe, history)
 	}
-	
+
 	return histServe
 }
-	
+
 func buildLandingPage(w http.ResponseWriter, req *http.Request) {
 	entry, err := getEntry(0)
 	if err != nil {
@@ -184,7 +179,7 @@ func buildPage(w http.ResponseWriter, r *http.Request) {
 		log.Printf("invalid id: %v", err)
 		return
 	}
-        entry, err := getEntry(id)
+	entry, err := getEntry(id)
 	if err != nil {
 		log.Printf("failed to get entry: %v", err)
 		return
@@ -209,25 +204,6 @@ func buildNavPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func serveResources(w http.ResponseWriter, r *http.Request) {
-        fs := http.FileServer(http.Dir(filepath.Join(*rootDir, *resources)))
-	http.StripPrefix("/images", fs).ServeHTTP(w, r)
-}
-
-func serveStatic(w http.ResponseWriter, r *http.Request) {
-	fs := http.FileServer(http.Dir(filepath.Join(*rootDir, *static)))
-	http.StripPrefix("/static", fs).ServeHTTP(w, r)
-}
-
-func redirect(w http.ResponseWriter, req *http.Request) {
-	// remove/add not default ports from req.Host
-	target := "https://" + req.Host + req.URL.Path
-	if len(req.URL.RawQuery) > 0 {
-		target += "?" + req.URL.RawQuery
-	}
-	http.Redirect(w, req, target, http.StatusTemporaryRedirect)
-}
-
 func getEntry(id int) (entry, error) {
 	// Get entry at id. If id is empty get most recent entry.
 	page := entry{}
@@ -237,7 +213,7 @@ func getEntry(id int) (entry, error) {
 			return page, err
 		}
 		defer rows.Close()
-		
+
 		for rows.Next() {
 			err := rows.Scan(
 				&page.entry_id, &page.title, &page.next, &page.previous, &page.content, &page.image)
@@ -257,7 +233,7 @@ func getEntry(id int) (entry, error) {
 }
 
 func getHistory() ([]history, error) {
-        rows, err := db.Query(historyQuery)
+	rows, err := db.Query(historyQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +253,7 @@ func getHistory() ([]history, error) {
 
 func main() {
 	flag.Parse()
-	
+
 	initDB()
 	initTmpls()
 
@@ -285,14 +261,5 @@ func main() {
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
 	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
-	router.HandleFunc("/static/{item}", serveStatic).Methods("GET")
-	router.HandleFunc("/images/{item}", serveResources).Methods("GET")
-
-	if !*ssl {
-		log.Fatal(http.ListenAndServe(*port, router))
-	} else {
-		go http.ListenAndServe(":80", http.HandlerFunc(redirect))
-		log.Fatal(http.ListenAndServeTLS(
-			*port, filepath.Join(*rootDir, *cert), filepath.Join(*rootDir, *key), router))
-	}
+	log.Fatal(http.ListenAndServe(*port, router))
 }
