@@ -149,15 +149,14 @@ func fromHistory(h []history) historyServing {
 	}
 
 	var histServe historyServing
-	for key, value := range m {
+	for key := range m {
 		history := historyEntry{}
 		history.Year = key
 		sort.Sort(sort.Reverse(sort.IntSlice(sk[key])))
-		for ik, iv := range value {
+		for _, entryId := range sk[key] {
 			history.Metadata = append(history.Metadata,
-				historyMeta{Title: iv, Path: filepath.Join("/entry", strconv.Itoa(ik))})
+				historyMeta{Title: m[key][entryId], Path: filepath.Join("/entry", strconv.Itoa(entryId))})
 		}
-		
 		histServe = append(histServe, history)
 	}
 	return histServe
