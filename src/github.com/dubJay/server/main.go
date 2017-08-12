@@ -6,11 +6,13 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"text/template"
 
+	"github.com/gorilla/feeds"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -28,7 +30,7 @@ var (
 // Queries for db actions.
 var (
 	entryQuery   = `SELECT timestamp, title, next, previous, paragraph, image FROM entry WHERE timestamp = ?`
-	landingQuery = `SELECT timestamp, title, next, previous, paragraph, image FROM entry ORDER BY timestamp DESC LIMIT 1`
+	landingQuery = `SELECT timestamp, title, next, previous, paragraph, image FROM entry ORDER BY timestamp DESC LIMIT ?`
 	historyQuery = `SELECT timestamp, title FROM entry ORDER BY timestamp DESC`
 )
 
@@ -48,7 +50,7 @@ type entry struct {
 	image     string
 }
 
-type entry_serving struct {
+type entryServing struct {
 	Title     string
 	NextPath string
 	PrevPath string
@@ -64,17 +66,17 @@ type history struct {
 	title    string
 }
 
-type history_meta struct {
+type historyMeta struct {
 	Title string
 	Path  string
 }
 
-type history_entry struct {
+type historyEntry struct {
 	Year     int
-	Metadata []history_meta
+	Metadata []historyMeta
 }
 
-type history_serving []history_entry
+type historyServing []historyEntry
 
 
 func initDB() {
@@ -110,7 +112,7 @@ func initTmpls() {
 	log.Print("Templates successfully initialized");
 }
 
-func fromEntry(e entry) entry_serving {
+func fromEntry(e entry) entryServing {
 	t := time.Unix(int64(e.entry_id), 0)
 	nextStr, prevStr := "", ""
 	if e.next != 0 {
@@ -120,7 +122,7 @@ func fromEntry(e entry) entry_serving {
 		prevStr = filepath.Join("/entry", strconv.Itoa(e.previous))
 	}
 
-	return entry_serving{
+	return entryServing{
 		Title: e.title,
 		NextPath: nextStr,
 		PrevPath: prevStr,
@@ -132,27 +134,32 @@ func fromEntry(e entry) entry_serving {
 	}
 }
 
-func fromHistory(h []history) history_serving {
+// This is a mess. Need to revist. 
+func fromHistory(h []history) historyServing {
 	m := make(map[int]map[int]string)
+	sk := make(map[int][]int)
 	for _, entry := range h {
 		t := time.Unix(int64(entry.entry_id), 0)
 		if _, ok := m[t.Year()]; !ok {
 			m[t.Year()] = make(map[int]string)
+			sk[t.Year()] = []int{}
 		}
 		m[t.Year()][entry.entry_id] = entry.title
+		sk[t.Year()] = append(sk[t.Year()], entry.entry_id)
 	}
 
-	var histServe history_serving
+	var histServe historyServing
 	for key, value := range m {
-		history := history_entry{}
+		history := historyEntry{}
 		history.Year = key
+		sort.Sort(sort.Reverse(sort.IntSlice(sk[key])))
 		for ik, iv := range value {
 			history.Metadata = append(history.Metadata,
-				history_meta{Title: iv, Path: filepath.Join("/entry", strconv.Itoa(ik))})
+				historyMeta{Title: iv, Path: filepath.Join("/entry", strconv.Itoa(ik))})
 		}
+		
 		histServe = append(histServe, history)
 	}
-
 	return histServe
 }
 
@@ -204,11 +211,111 @@ func buildNavPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func buildFeedPage(w http.ResponseWriter, r *http.Request) {
+        vars := mux.Vars(r)
+	if len(vars["type"]) == 0 {
+		log.Print("no type requested by user.")
+		http.Error(w, "no feed type specified by user.", http.StatusPreconditionRequired)
+		return
+	}
+	contains := func(s []string, e string) bool {
+		for _, a := range s {
+			if a == e {
+				return true
+			}
+		}
+		return false
+	}
+	if !contains([]string{"atom.xml", "rss.xml", "jsonfeed.json"}, vars["type"]) {
+		log.Print("invalid type requested by user.")
+		http.Error(w, "invalid type requested by user.", http.StatusPreconditionFailed)
+		return
+	}
+	
+	entries, err := getRecentEntries(5)
+	if err != nil {
+		log.Printf("unable to retrieve history entries: %v", err)
+		http.Error(w, "failed to retrieve recent entries.", http.StatusInternalServerError)
+		return
+	}
+
+	feed := &feeds.Feed{
+		Title:       "Christopher Cawdrey's Blog",
+		Link:        &feeds.Link{Href: "https://christopher.cawdrey.name"},
+		Description: "Chris' musings, projects, and dispositions.",
+		Author:      &feeds.Author{Name: "Christopher Cawdrey", Email: "chris@cawdrey.name"},
+		Created:     time.Unix(1489554739, 0),
+	}
+	for _, entry := range entries {
+		descriptionCutOff := 50
+		if len(entry.content) < descriptionCutOff {
+			descriptionCutOff = len(entry.content)
+		}
+
+		feed.Items = append(feed.Items,
+			&feeds.Item{
+				Title:       entry.title,
+				Id:          strconv.Itoa(entry.entry_id),
+				Link:        &feeds.Link{Href: strings.Join([]string{"https://christopher.cawdrey.name/entry/", strconv.Itoa(entry.entry_id)}, "")},
+				Description: entry.content[:descriptionCutOff] + "...",
+				Created:     time.Unix(int64(entry.entry_id), 0),
+			})
+	}
+
+	switch vars["type"] {
+	case "atom.xml":
+		atom, err := feed.ToAtom()
+		if err != nil {
+			log.Printf("failed to create atom feed %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte(atom))
+	case "rss.xml":
+		rss, err := feed.ToRss()
+		if err != nil {
+			log.Printf("failed to create rss feed %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+
+		}
+		w.Write([]byte(rss))
+	default:
+		json, err := feed.ToJSON()
+		if err != nil {
+			log.Printf("failed to create json feed %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte(json))
+	}
+}
+
+func getRecentEntries(limit int) ([]entry, error) {
+	rows, err := db.Query(landingQuery, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []entry
+	for rows.Next() {
+		entry := entry{}
+		err := rows.Scan(&entry.entry_id, &entry.title, &entry.next, &entry.previous, &entry.content, &entry.image)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
+}
+
+
 func getEntry(id int) (entry, error) {
 	// Get entry at id. If id is empty get most recent entry.
 	page := entry{}
 	if id == 0 {
-		rows, err := db.Query(landingQuery)
+		rows, err := db.Query(landingQuery, 1)
 		if err != nil {
 			return page, err
 		}
@@ -261,5 +368,6 @@ func main() {
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
 	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
+	router.HandleFunc("/feeds/{type}", buildFeedPage).Methods("GET")
 	log.Fatal(http.ListenAndServe(*port, router))
 }
