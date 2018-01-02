@@ -410,9 +410,9 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
-	router.HandleFunc("/{id}", buildLandingPage).Methods("GET")
 	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
 	router.HandleFunc("/feeds/{type}", buildFeedPage).Methods("GET")
+	router.HandleFunc("/{id}", buildLandingPage).Methods("GET")
 	log.Fatal(http.ListenAndServe(*port, router))
 }
