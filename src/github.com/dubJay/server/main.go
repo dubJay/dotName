@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -32,6 +33,7 @@ var (
 	entryQuery   = `SELECT timestamp, title, next, previous, paragraph, image FROM entry WHERE timestamp = ?`
 	landingQuery = `SELECT timestamp, title, next, previous, paragraph, image FROM entry ORDER BY timestamp DESC LIMIT ?`
 	historyQuery = `SELECT timestamp, title FROM entry ORDER BY timestamp DESC`
+	oneoffQuery  = `SELECT uid, paragraph, image from oneoff WHERE uid = ?`
 )
 
 const (
@@ -47,6 +49,12 @@ type entry struct {
 	next      int
 	previous  int
 	content   string
+	image     string
+}
+
+type oneoff struct {
+	uid       string
+	paragraph string
 	image     string
 }
 
@@ -112,6 +120,10 @@ func initTmpls() {
 	log.Print("Templates successfully initialized");
 }
 
+func splitTextBlob(s string) []string {
+	return strings.Split(s, `\n`)
+}
+
 func fromEntry(e entry) entryServing {
 	t := time.Unix(int64(e.entry_id), 0)
 	nextStr, prevStr := "", ""
@@ -129,8 +141,16 @@ func fromEntry(e entry) entryServing {
 		Month: t.Month().String(),
 		Day: strconv.Itoa(t.Day()),
 		Year: strconv.Itoa(t.Year()),
-		Content: strings.Split(e.content, `\n`),
-		Image: strings.Split(e.image, `\n`),
+		Content: splitTextBlob(e.content),
+		Image: splitTextBlob(e.image),
+	}
+}
+
+func fromOneOff(o oneoff) entryServing {
+	return entryServing{
+		Title: o.uid,
+		Content: splitTextBlob(o.paragraph),
+		Image: splitTextBlob(o.image),
 	}
 }
 
@@ -162,7 +182,27 @@ func fromHistory(h []history) historyServing {
 	return histServe
 }
 
-func buildLandingPage(w http.ResponseWriter, req *http.Request) {
+func buildOneOff(w http.ResponseWriter, uid string) error {
+	oneoff, err := getOneOff(uid)
+	if err != nil {
+		return fmt.Errorf("unable to find oneoff entry: %v", err)
+	}
+	serving := fromOneOff(oneoff)
+	
+	return tmpls[entryPage].Execute(w, serving)
+}
+
+func buildLandingPage(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if vars["id"] != "" {
+		err := buildOneOff(w, vars["id"])
+		if err != nil {
+			log.Printf("failed to build oneoff page: %v", err)
+		} else {
+			// If oneoff build was successful we don't need the landing page.
+			return
+		}
+	} 
 	entry, err := getEntry(0)
 	if err != nil {
 		log.Printf("failed to get entry: %v", err)
@@ -309,6 +349,11 @@ func getRecentEntries(limit int) ([]entry, error) {
 	return entries, nil
 }
 
+func getOneOff(id string) (oneoff, error) {
+	oneoff := oneoff{}
+	err := db.QueryRow(oneoffQuery, id).Scan(&oneoff.uid, &oneoff.paragraph, &oneoff.image)
+	return oneoff, err
+}
 
 func getEntry(id int) (entry, error) {
 	// Get entry at id. If id is empty get most recent entry.
@@ -365,6 +410,7 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
+	router.HandleFunc("/{id}", buildLandingPage).Methods("GET")
 	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
 	router.HandleFunc("/feeds/{type}", buildFeedPage).Methods("GET")

@@ -15,3 +15,11 @@ CREATE TABLE IF NOT EXISTS entry (
        /* Content seperate by \n */
        image TEXT
 );
+
+CREATE TABLE IF NOT EXISTS oneoff (
+       uid TEXT NOT NULL PRIMARY KEY,
+       /* Content seperated by \n */
+       paragraph TEXT
+       /* Content seperate by \n */
+       image TEXT
+);
