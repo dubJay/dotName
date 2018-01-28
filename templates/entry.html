@@ -39,7 +39,7 @@
       {{end}}
     </div>
     <hr style="border: solid #fff; height: 0;">
-    <div>
+    <div id="nav">
       <p>
 	{{ if .PrevPath }}
 	<a href="{{.PrevPath}}">Previous</a>
@@ -50,6 +50,15 @@
 	{{end}}
       </p>
     </div>
-    <footer></footer>
+    <footer>
+      <hr style="border-color: inherit">
+      <a href="/">Christopher Cawdrey</a>
+      <br>
+      <div id="footer">
+	<a href="/feeds/atom.xml">Atom Feed</a>  -- 
+	<a href="/feeds/jsonfeed.json">JSON Feed</a>  -- 
+	<a href="/feeds/rss.xml">RSS Feed</a>
+      </div>
+    </footer>
   </body>
   </html>

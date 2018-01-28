@@ -23,12 +23,14 @@
       </script>
   </head>
   <body>
-    <div class="totheleft">
-      <img id="me" src="/images/me.jpg" width="242" height="162" alt="[Photograph of Christopher Cawdrey]">
+    <div id="header">
+      <div class="totheleft">
+	<img id="me" src="/images/me2-min.jpg" width="242" height="162" alt="[Photograph of Christopher Cawdrey]">
+      </div>
+      <h3>Christopher Cawdrey</h3>
+      <p>Hi. Welcome to my site! I currently work as a Software Engineer for Google. My background is in GeoSpatial technologies and once upon a time I studied Geology. I built this mostly for record keeping purposes though occasionally I like to think I do <a target="_blank" href="https://www.instagram.com/justanothershittycampervan/">interesting things</a>. Questions? Comments? Unsolicited Adulations? Feel free to <a href="mailto:chris@cawdrey.name">shoot me an email.</a></p>
+      <div>
     </div>
-    <h3>Christopher Cawdrey</h3>
-    <p>Hi. Welcome to my site! I currently work as a Software Engineer for Google. My background is in GeoSpatial technologies and once upon a time I studied Geology. I built this mostly for record keeping purposes though occasionally I like to think I do <a target="_blank" href="https://www.instagram.com/justanothershittycampervan/">interesting things</a>. Questions? Comments? Unsolicited Adulations? Feel free to <a href="mailto:chris@cawdrey.name">shoot me an email.</a></p>
-    <div>
       <div id="content">
 	<h3>{{.Title}}</h3>
 	<p><i>{{.Month}} {{.Day}} {{.Year}}</i></p>
@@ -42,7 +44,7 @@
 	{{end}}
       </div>
       <hr style="border: solid #fff; height: 0;">
-      <div>
+      <div id="nav">
 	<p>
 	  {{ if .PrevPath }}
 	  <a href="{{.PrevPath}}">Previous</a>
@@ -54,6 +56,15 @@
 	</p>
       </div>
     </div>
-    <footer></footer>
+    <footer>
+      <hr style="border-color: inherit">
+      <a href="/">Christopher Cawdrey</a>
+      <br>
+      <div id="footer">
+	<a href="/feeds/atom.xml">Atom Feed</a>  -- 
+	<a href="/feeds/jsonfeed.json">JSON Feed</a>  -- 
+	<a href="/feeds/rss.xml">RSS Feed</a>
+      </div>
+    </footer>
   </body>
 </html>

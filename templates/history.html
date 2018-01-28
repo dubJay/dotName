@@ -23,15 +23,26 @@
       </script>
   </head>
   <body>
-    <h1>History</h1>
-    {{range .}}
-    <ul style="list-style: none;">
-      <h4>{{.Year}}<h4>
-      {{range $index, $value := .Metadata}}
-      <li><a href="{{$value.Path}}">{{$value.Title}}</a></li>
+    <div id="nav">
+      <h1>History</h1>
+      {{range .}}
+      <ul style="list-style: none;">
+	<h4>{{.Year}}<h4>
+	{{range $index, $value := .Metadata}}
+	  <li><a href="{{$value.Path}}">{{$value.Title}}</a></li>
+	{{end}}
+      </ul>
       {{end}}
-    </ul>
-    {{end}}
-    <footer></footer>
+    </div>
+    <footer>
+      <hr style="border-color: inherit">
+      <a href="/">Christopher Cawdrey</a>
+      <br>
+      <div id="footer">
+	<a href="/feeds/atom.xml">Atom Feed</a>  -- 
+	<a href="/feeds/jsonfeed.json">JSON Feed</a>  -- 
+	<a href="/feeds/rss.xml">RSS Feed</a>
+      </div>
+    </footer>
   </body>
   </html>
