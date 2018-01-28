@@ -271,7 +271,7 @@ func buildFeedPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	entries, err := getRecentEntries(5)
+	entries, err := getRecentEntries(15)
 	if err != nil {
 		log.Printf("unable to retrieve history entries: %v", err)
 		http.Error(w, "failed to retrieve recent entries.", http.StatusInternalServerError)
