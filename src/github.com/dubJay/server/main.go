@@ -1,9 +1,12 @@
-package main
+package dotName
 
 import (
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -11,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"text/template"
 
 	"github.com/gorilla/feeds"
 	"github.com/gorilla/mux"
@@ -26,6 +28,9 @@ var (
 	port      = flag.String("port", ":8080", "Port for server to listen on")
 	rootDir   = flag.String("rootDir", "", "Path to webdir structure")
 	templates = flag.String("templates", "templates", "Templates directory")
+	resources = flag.String("resources", "resources", "Images directory")
+	static    = flag.String("static", "static" , "CSS, HTML, JS, etc...")
+	dataDir     = flag.String("dataDir", "data", "Text file containing ips from ssh attempts")
 )
 
 // Queries for db actions.
@@ -40,6 +45,7 @@ const (
 	entryPage   = "entry.html"
 	historyPage = "history.html"
 	landingPage = "index.html"
+	mapPage     = "map.html"
 )
 
 type entry struct {
@@ -86,6 +92,19 @@ type historyEntry struct {
 
 type historyServing []historyEntry
 
+type LatLng struct {
+	Latitude float64  `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type IPLocation struct {
+	IP string       `json:"ip"`
+	Coords LatLng   `json:"coords"`
+	Attempts int32  `json:"attempts"`
+	Timestamp int64 `json:"timestamp"`
+}
+
+type IPLocations []IPLocation
 
 func initDB() {
 	var err error
@@ -114,6 +133,16 @@ func initTmpls() {
 	}
 	tmpls[historyPage], err = template.New(
 		historyPage).ParseFiles(filepath.Join(*rootDir, *templates, historyPage))
+	tmpls[mapPage], err = template.New(
+		mapPage).Funcs(template.FuncMap{
+			"marshal": func(v interface{}) template.JS {
+				a, _ := json.Marshal(v)
+				return template.JS(a)
+			},
+		}).ParseFiles(filepath.Join(*rootDir, *templates, mapPage))
+	if err != nil {
+		log.Fatalf("error parsing template %s: %v", mapPage, err)
+	}
 	if err != nil {
 		log.Fatalf("error parsing template %s: %v", historyPage, err)
 	}
@@ -402,6 +431,43 @@ func getHistory() ([]history, error) {
 	return entries, nil
 }
 
+func serveResources(w http.ResponseWriter, r *http.Request) {
+	fs := http.FileServer(http.Dir(filepath.Join(*rootDir, *resources)))
+	http.StripPrefix("/images", fs).ServeHTTP(w, r)
+}
+
+func serveStatic(w http.ResponseWriter, r *http.Request) {
+	fs := http.FileServer(http.Dir(filepath.Join(*rootDir, *static)))
+	http.StripPrefix("/static", fs).ServeHTTP(w, r)
+}
+
+func readMapData() (string, IPLocations, error) {
+	var iplocations IPLocations
+	dataDirectory := filepath.Join(*rootDir, *dataDir)
+
+	cached, err := ioutil.ReadFile(filepath.Join(dataDirectory, "map_data.json"))
+	if err != nil {
+		return dataDirectory, iplocations, fmt.Errorf("unable to read iplocation.json file:  %v")
+	}
+	err = json.Unmarshal(cached, &iplocations)
+	if err != nil {
+		return dataDirectory, iplocations, fmt.Errorf("unable to unmarshal iplocation.json: %v")
+	}
+	return dataDirectory, iplocations, nil
+}
+
+func getMap(w http.ResponseWriter, req *http.Request) {
+	_, iplocations, err := readMapData()
+	if err != nil {
+		log.Printf("Unable to build ssh_map: %v", err)
+		http.Error(w, "unable to parse map data", http.StatusInternalServerError)
+	}
+
+	if err := tmpls[mapPage].Execute(w, iplocations); err != nil {
+		log.Printf("error executing template %s: %v", iplocations, err)
+	}
+}
+
 func main() {
 	flag.Parse()
 
@@ -410,9 +476,14 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", buildLandingPage).Methods("GET")
-	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
+	router.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, filepath.Join(*rootDir, "robots.txt"))})
 	router.HandleFunc("/history", buildNavPage).Methods("GET")
+	router.HandleFunc("/ssh_map", getMap).Methods("GET")
+	router.HandleFunc("/entry/{id}", buildPage).Methods("GET")
 	router.HandleFunc("/feeds/{type}", buildFeedPage).Methods("GET")
+	router.HandleFunc("/static/{item}", serveStatic).Methods("GET")
+	router.HandleFunc("/images/{item}", serveResources).Methods("GET")
 	router.HandleFunc("/{id}", buildLandingPage).Methods("GET")
 	log.Fatal(http.ListenAndServe(*port, router))
 }
